@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the Floating Todo window",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open", "core:window:allow-set-always-on-top", "core:window:allow-set-position", "core:window:allow-set-size", "core:window:allow-set-min-size", "core:window:allow-set-resizable"]
+}

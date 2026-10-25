@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Floating Todo",
+  "version": "0.1.0",
+  "identifier": "com.floatingtodo.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev -- --host 127.0.0.1",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [{
+      "label": "main",
+      "title": "Floating Todo",
+      "width": 390,
+      "height": 600,
+      "minWidth": 320,
+      "minHeight": 450,
+      "decorations": false,
+      "transparent": true,
+      "windowEffects": { "effects": ["underWindowBackground", "acrylic"], "state": "active", "radius": 16 },
+      "alwaysOnTop": true,
+      "resizable": true
+    }],
+    "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com", "capabilities": ["default"] }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "category": "Productivity",
+    "shortDescription": "A local-first floating task list",
+    "macOS": { "minimumSystemVersion": "11.0", "signingIdentity": "-" },
+    "windows": { "nsis": { "languages": ["English", "TradChinese"], "displayLanguageSelector": true } }
+  }
+}
