@@ -1,6 +1,14 @@
 # Floating Todo 安裝包
 
-## macOS
+## 從 Release 下載安裝包（最快方式）
+
+前往 [GitHub Release v0.1.0](https://github.com/arielxq/floating-todo/releases/tag/v0.1.0) 下載：
+
+- **macOS**：`Floating Todo_0.1.0_universal.dmg` — Universal (Apple Silicon + Intel)，最低 macOS 11，ad-hoc 簽署，未經公證。
+- **Windows**：`Floating Todo_0.1.0_x64-setup.exe` — x64 NSIS 安裝精靈，支援中英文，未簽署。
+- `SHA256SUMS.txt` — macOS DMG 的 SHA-256 校驗碼。
+
+## macOS（自行建置）
 
 需要 Node.js 22、Rust stable 與 Apple Command Line Tools（建議使用完整 Xcode）。
 
@@ -17,7 +25,7 @@ Universal 安裝包支援 Apple Silicon 與 Intel Mac，最低 macOS 11。
 
 本機建置使用 ad-hoc 簽署，未經 Apple Developer ID 簽署及公證。首次開啟可能需在「系統設定 → 隱私權與安全性」選擇「仍要打開」。對外發佈前可透過 Tauri 的 Apple 簽署環境變數加入 Developer ID 與公證憑證。
 
-## Windows
+## Windows（自行建置）
 
 在 Windows x64 上安裝 Node.js 22、Rust stable（MSVC）與 Visual Studio Build Tools 的「使用 C++ 的桌面開發」工具。
 

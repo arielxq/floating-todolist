@@ -27,21 +27,26 @@ Floating Todo 是以 Tauri、React 與 TypeScript 製作的桌面懸浮待辦工
 
 ### macOS
 
-已產生 **0.1.0 Universal DMG**，內含 Apple Silicon 與 Intel 兩種架構，最低系統需求為 macOS 11。
+已發布 **v0.1.0 Universal DMG**，內含 Apple Silicon 與 Intel 兩種架構，最低系統需求為 macOS 11。
 
-1. 開啟本機的 [Floating Todo_0.1.0_universal.dmg](<installers/Floating Todo_0.1.0_universal.dmg>)。
-2. 將 Floating Todo 拖入「應用程式」。
+1. 到 [GitHub Release v0.1.0](https://github.com/arielxq/floating-todo/releases/tag/v0.1.0) 下載 `Floating Todo_0.1.0_universal.dmg`。
+2. 開啟 DMG，將 Floating Todo 拖入「應用程式」。
 3. 啟動後選擇任務資料夾，再新增自己的第一筆任務。
 
 安裝包使用 ad-hoc 簽署，尚未經 Apple Developer ID 簽署及公證。若 macOS 阻擋首次開啟，可到「系統設定 → 隱私權與安全性」選擇「仍要打開」。
 
-`installers/` 是本機建置產物目錄，不納入版本控制；從原始碼下載專案時，請依 [BUILDING.md](BUILDING.md) 建置或取得另行提供的安裝包。
+從原始碼下載專案時，亦可依 [BUILDING.md](BUILDING.md) 自行建置。
 
 ### Windows
 
-已完成 **Windows x64 NSIS EXE** 建置設定，安裝精靈支援英文／繁體中文；目前尚未產出 Windows 安裝包，也尚未完成 Windows 實機驗收。
+已透過 GitHub Actions 產出 **Windows x64 NSIS EXE**，安裝精靈支援英文／繁體中文，可從 [GitHub Release v0.1.0](https://github.com/arielxq/floating-todo/releases/tag/v0.1.0) 下載 `Floating Todo_0.1.0_x64-setup.exe`。
 
-可在 Windows 電腦建置，或將專案放入 GitHub repository 後執行 [Build desktop installers](.github/workflows/installers.yml)。工作流程完成後，從 Artifacts 下載安裝檔。Windows 10／11 需要 WebView2；缺少時安裝精靈預設會下載該元件。
+1. 執行安裝精靈完成安裝（支援中英文選擇）。
+2. 啟動後選擇任務資料夾，再新增第一筆任務。
+
+Windows 10／11 需要 WebView2；缺少時安裝精靈預設會下載該元件。未簽署的安裝包可能顯示 SmartScreen 提示。Windows 實機安裝與操作仍需驗收。
+
+亦可在 Windows 電腦自行建置，或將專案放入 GitHub repository 後執行 [Build desktop installers](.github/workflows/installers.yml)。
 
 ## 日常操作
 
@@ -105,4 +110,5 @@ BUILDING.md                  平台建置與驗收說明
 
 - 前端正式建置已通過；瀏覽器已驗證中英文、320px 窄視窗、狀態選單、分組篩選、排序及完成復原。
 - macOS Universal 原生建置、DMG 完整性、雙架構與 ad-hoc 簽章驗證已通過。
-- macOS 原生完整操作、透明效果、多螢幕與吸附仍需實機驗收；Windows 尚未建置及驗收。
+- macOS 原生完整操作、透明效果、多螢幕與吸附仍需實機驗收。
+- Windows x64 建置成功（GitHub Actions），安裝包已發布至 Release v0.1.0；Windows 實機安裝與操作仍需驗收。
