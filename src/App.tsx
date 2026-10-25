@@ -106,6 +106,7 @@ export default function App() {
   const [windowPosition] = useState(() => load('floating-todo.window-position.v1', { x: 0, y: 0 }))
   const [nativeReady, setNativeReady] = useState(!isTauri())
   const [taskFolder, setTaskFolder] = useState(() => load('floating-todo.folder.v1', ''))
+  const [showFolderWelcome, setShowFolderWelcome] = useState(false)
   const revisionRef = useRef(0)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveFailed = useRef(false)
@@ -118,6 +119,7 @@ export default function App() {
   const panelSize = useRef(load('floating-todo.window-size.v1', { width: 390, height: 600 }))
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight })
   const inputRef = useRef<HTMLInputElement>(null)
+  const expandCooldownRef = useRef(0)
   const list = useMemo(() => {
     const filtered = tasks.filter((task) => task.status === active && (groupFilter === 'all' || task.group === groupFilter))
     if (sort === 'due-asc' || sort === 'due-desc') filtered.sort((a, b) => {
@@ -153,7 +155,11 @@ export default function App() {
     async function initialize() {
       try {
         let folder = taskFolder
-        if (!folder) folder = await invoke<string | null>('select_task_folder') ?? ''
+        if (!folder) {
+          setShowFolderWelcome(true)
+          folder = await invoke<string | null>('select_task_folder') ?? ''
+          setShowFolderWelcome(false)
+        }
         if (!folder) { if (!cancelled) setToast(t('請選擇任務資料夾以開始使用。', 'Choose a task folder to start.')); return }
         const data = await invoke<{ revision: number; tasks: Task[]; groups?: Group[] }>('read_tasks', { folder })
         if (cancelled) return
@@ -167,6 +173,21 @@ export default function App() {
     void initialize()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (isTauri() && taskFolder) {
+      const checkFolder = async () => {
+        try {
+          await invoke('read_tasks', { folder: taskFolder })
+        } catch {
+          setTaskFolder('')
+          localStorage.removeItem('floating-todo.folder.v1')
+          setShowFolderWelcome(true)
+        }
+      }
+      void checkFolder()
+    }
+  }, [taskFolder])
   useEffect(() => {
     if (!isTauri()) {
       try { localStorage.setItem('floating-todo.tasks.v1', JSON.stringify(tasks)); setSaveState('saved') }
@@ -196,7 +217,9 @@ export default function App() {
     let timer: number | undefined
     const onBlur = () => {
       const element = document.activeElement
-      if (element?.matches('input, select, textarea') || settings.pinned || !settings.autoCollapse || dragId || editing || draft || settingsOpen || datePicking || groupMenuOpen) return
+      if (element?.matches('input, select, textarea') || settings.pinned || !settings.autoCollapse || dragId || editing || draft || settingsOpen || datePicking || groupMenuOpen || nativeTransition.current) return
+      const now = Date.now()
+      if (now < expandCooldownRef.current) return
       timer = window.setTimeout(() => { if (!document.hasFocus()) void collapse() }, 450)
     }
     const onFocus = () => window.clearTimeout(timer)
@@ -322,6 +345,9 @@ export default function App() {
     if (nativeTransition.current) return
     if (isTauri()) {
       nativeTransition.current = true
+      collapsedRef.current = false
+      setCollapsed(false)
+      expandCooldownRef.current = Date.now() + 600
       try {
         const win = getCurrentWindow(); const monitor = await currentMonitor(); if (!monitor) throw new Error(t('找不到目前螢幕', 'Current monitor unavailable'))
         const pos = await win.outerPosition(); const area = monitor.workArea
@@ -332,11 +358,13 @@ export default function App() {
           clamp(bubble.side === 'bottom' ? pos.y + 56 * monitor.scaleFactor - height : pos.y, area.position.y, area.position.y + area.size.height - height),
         ))
         await win.setMinSize(new LogicalSize(320, 450)); await win.setResizable(true)
+        await win.setFocus()
         nativeDocked.current = true
       } catch (error) { setToast(String(error)); return }
       finally { nativeTransition.current = false }
+    } else {
+      collapsedRef.current = false; setCollapsed(false)
     }
-    collapsedRef.current = false; setCollapsed(false)
   }
   async function beginNativeGesture(event: React.PointerEvent<HTMLElement>) {
     if (!isTauri()) return
@@ -362,7 +390,7 @@ export default function App() {
   const bubblePoint = dockPoint(bubble, viewport.width, viewport.height)
 
   if (collapsed) return <main className={`bubble-wrap ${bubble.side}`} style={{ top: isTauri() ? 3 : bubbleDrag ? bubbleDrag.y - 24 : bubblePoint.y + 3, left: isTauri() ? 3 : bubbleDrag ? bubbleDrag.x - 24 : bubblePoint.x + 3, right: 'auto' }}>
-    <button className="bubble" title={t('點擊展開 · 拖曳移動', 'Click to open · drag to move')} aria-label={t('開啟或拖曳 Floating Todo', 'Open or drag Floating Todo')} onClick={(event) => { if (event.detail === 0) void expand() }} onPointerDown={(event) => {
+    <button className="bubble" title={t('點擊展開 · 拖曳移動', 'Click to open · drag to move')} aria-label={t('開啟或拖曳 Floating Todo', 'Open or drag Floating Todo')} onPointerDown={(event) => {
       event.currentTarget.setPointerCapture(event.pointerId)
       bubbleGesture.current = { x: event.screenX, y: event.screenY, moved: false }
       void beginNativeGesture(event)
@@ -384,6 +412,8 @@ export default function App() {
       setBubbleDrag(null)
     }} onPointerCancel={() => { bubbleGesture.current = null; setBubbleDrag(null); if (isTauri()) void endNativeGesture(true) }}><ListTodo size={20} strokeWidth={1.8} /><span className="bubble-count">{remaining}</span></button>
   </main>
+
+  {showFolderWelcome && <div className="folder-welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="folder-welcome-title"><div className="folder-welcome-card"><h2 id="folder-welcome-title">{t('選擇任務資料夾', 'Choose Task Folder')}</h2><p>{t('Floating Todo 將在您選擇的資料夾中建立 tasks.json，任務資料完全保留在本機。', 'Floating Todo stores your tasks in a tasks.json file inside the folder you choose. Your data stays completely local.')}</p><button className="folder-welcome-button" onClick={async () => { try { const folder = await invoke<string | null>('select_task_folder'); if (folder) { const data = await invoke<{ revision: number; tasks: Task[]; groups?: Group[] }>('read_tasks', { folder }); revisionRef.current = data.revision; setTasks(migrateTasks(data.tasks)); setGroups(data.groups?.length ? data.groups : defaultGroups); setNewGroup(data.groups?.[0]?.id ?? defaultGroups[0].id); setTaskFolder(folder); localStorage.setItem('floating-todo.folder.v1', folder); setNativeReady(true); setShowFolderWelcome(false) } } catch (error) { setToast(String(error)) } }}>{t('選擇資料夾並開始', 'Choose Folder & Start')}</button></div></div>}
 
   return <main className={`desktop ${isTauri() ? 'native-desktop' : `preview-${previewBackground}`}`}>
     {!isTauri() && <div className="preview-controls"><span>{t('透明背景預覽', 'Glass preview')}</span><select aria-label={t('預覽背景', 'Preview background')} value={previewBackground} onChange={(event) => setPreviewBackground(event.target.value)}><option value="pattern">{t('圖案背景', 'Pattern')}</option><option value="light">{t('明亮背景', 'Light')}</option><option value="dark">{t('深色背景', 'Dark')}</option></select></div>}
@@ -437,11 +467,15 @@ export default function App() {
         <label className="range-row"><span><strong>{t('背景不透明度（越低越透明）', 'Background opacity (lower is clearer)')}</strong><small>{settings.opacity}%</small></span><input type="range" min="25" max="100" value={settings.opacity} onChange={(event) => setSettings((s) => ({ ...s, opacity: Number(event.target.value), opacityCustomized: true }))} /></label>
         <label className="range-row"><span><strong>{t('毛玻璃模糊', 'Glass blur')}</strong><small>{settings.blur}px</small></span><input type="range" min="0" max="28" value={settings.blur} onChange={(event) => setSettings((s) => ({ ...s, blur: Number(event.target.value) }))} /></label>
         <GroupManager groups={groups} onChange={setGroups} onDelete={deleteGroup} t={t} />
-        <button className="folder-button" onClick={async () => {
-          if (!isTauri()) { setToast(t('桌面版可選擇任務資料夾。', 'The folder picker is available in the desktop app.')); return }
-          if (saveState === 'saving' || saveState === 'error') { setToast(t('請先完成目前資料的儲存，再切換資料夾。', 'Save current changes before switching folders.')); return }
-          try { const folder = await invoke<string | null>('select_task_folder'); if (folder) { await saveQueue.current; const data = await invoke<{ revision: number; tasks: Task[]; groups?: Group[] }>('read_tasks', { folder }); revisionRef.current = data.revision; saveFailed.current = false; const loadedGroups = data.groups?.length ? data.groups : defaultGroups; setGroups(loadedGroups); setNewGroup(loadedGroups[0].id); setGroupFilter('all'); setTasks(migrateTasks(data.tasks)); setTaskFolder(folder); localStorage.setItem('floating-todo.folder.v1', folder); setNativeReady(true) } } catch (error) { setToast(String(error)) }
-        }}><LockKeyhole size={14} /> {t('選擇任務資料夾', 'Choose task folder')}</button>
+        <div className="folder-section">
+          {taskFolder && <div className="folder-current-path" title={taskFolder}><LockKeyhole size={13} /> <span>{t('目前資料夾', 'Current folder')}</span><code>{taskFolder}</code></div>}
+          <button className="folder-button" onClick={async () => {
+            if (!isTauri()) { setToast(t('桌面版可選擇任務資料夾。', 'The folder picker is available in the desktop app.')); return }
+            if (saveState === 'saving' || saveState === 'error') { setToast(t('請先完成目前資料的儲存，再切換資料夾。', 'Save current changes before switching folders.')); return }
+            const migrate = taskFolder && window.confirm(t('是否將現有任務遷移到新資料夾？', 'Migrate existing tasks to the new folder?'))
+            try { const folder = await invoke<string | null>('select_task_folder'); if (folder) { await saveQueue.current; if (migrate && taskFolder) { await invoke<void>('write_tasks', { folder, tasks, groups, revision: revisionRef.current }) } const data = await invoke<{ revision: number; tasks: Task[]; groups?: Group[] }>('read_tasks', { folder }); revisionRef.current = data.revision; saveFailed.current = false; const loadedGroups = data.groups?.length ? data.groups : defaultGroups; setGroups(loadedGroups); setNewGroup(loadedGroups[0].id); setGroupFilter('all'); setTasks(migrateTasks(data.tasks)); setTaskFolder(folder); localStorage.setItem('floating-todo.folder.v1', folder); setNativeReady(true) } } catch (error) { setToast(String(error)) }
+          }}><LockKeyhole size={14} /> {t(taskFolder ? '變更任務資料夾' : '選擇任務資料夾', taskFolder ? 'Change task folder' : 'Choose task folder')}</button>
+        </div>
       </div>}
       {toast && <div className="toast" role="status">{toast}<button onClick={() => setToast('')} aria-label={t('關閉提示', 'Dismiss')}><X size={13} /></button></div>}
       {undo && <div className="undo-notice" role="status"><Check size={14} /><span>{t('任務已完成', 'Task completed')}</span><button onClick={() => { updateStatus(undo.id, undo.status); setUndo(null) }}>{t('復原', 'Undo')}</button><button aria-label={t('關閉復原提示', 'Dismiss undo')} onClick={() => setUndo(null)}><X size={13} /></button></div>}
